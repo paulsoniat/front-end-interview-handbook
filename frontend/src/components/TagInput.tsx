@@ -14,10 +14,8 @@ const TagInput: React.FC<TagInputProps> = ({ tags, onTagsChange }) => {
       const newTag = inputValue.trim();
       if (newTag && !tags.includes(newTag)) {
         onTagsChange([...tags, newTag]);
-        setInputValue('');
-      } else if (newTag && tags.includes(newTag)) {
-        setInputValue('');
       }
+      setInputValue('');
     }
   };
 

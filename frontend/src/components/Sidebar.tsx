@@ -23,31 +23,30 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const folders = ['All Notes', 'Personal', 'Work', 'Archived'];
 
-  useEffect(() => {
-    const fetchTags = async () => {
-      setTagsLoading(true);
-      setTagsError(null);
-      try {
-        const token = getToken();
-        const response = await fetch(`${API_BASE}/notes/tags`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch tags');
-        }
-        const data = await response.json();
-        const tagList: string[] = data.tags || [];
-        setTags(tagList);
-      } catch (err) {
-        setTagsError('Could not load tags');
-      } finally {
-        setTagsLoading(false);
+  const fetchTags = async () => {
+    setTagsLoading(true);
+    setTagsError(null);
+    try {
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/notes/tags`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch tags');
       }
-    };
+      const data = await response.json();
+      setTags(data.tags || []);
+    } catch (err) {
+      setTagsError('Could not load tags');
+    } finally {
+      setTagsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchTags();
   }, []);
 

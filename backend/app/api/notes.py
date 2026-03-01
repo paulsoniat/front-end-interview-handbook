@@ -16,7 +16,7 @@ def get_all_tags(
     current_user: User = Depends(get_current_user),
 ):
     notes = db.query(Note).filter(Note.user_id == current_user.id).all()
-    all_tags = set()
+    all_tags: set = set()
     for note in notes:
         if note.tags:
             for tag in note.tags:
@@ -29,24 +29,26 @@ def get_notes(
     tag: Optional[str] = Query(None),
     folder_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     query = db.query(Note).filter(Note.user_id == current_user.id)
 
-    if folder_id is not None:
-        query = query.filter(Note.folder_id == folder_id)
-
-    if search:
-        query = query.filter(
-            Note.title.ilike(f"%{search}%") | Note.body.ilike(f"%{search}%")
-        )
-
     if tag is not None:
         query = query.filter(Note.tags.contains([tag]))
 
-    notes = query.all()
-    return notes
+    if folder_id is not None:
+        query = query.filter(Note.folder_id == folder_id)
+
+    if search is not None:
+        search_term = f"%{search}%"
+        query = query.filter(
+            Note.title.ilike(search_term) | Note.body.ilike(search_term)
+        )
+
+    return query.offset(skip).limit(limit).all()
 
 
 @router.post("/", response_model=NoteResponse, status_code=status.HTTP_201_CREATED)
@@ -78,7 +80,7 @@ def get_note(
     if not note:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
     if note.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this note")
     return note
 
 
@@ -93,7 +95,7 @@ def update_note(
     if not note:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
     if note.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this note")
 
     update_data = note_in.dict(exclude_unset=True)
     for field, value in update_data.items():
@@ -114,7 +116,8 @@ def delete_note(
     if not note:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
     if note.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this note")
 
     db.delete(note)
     db.commit()
+    return None

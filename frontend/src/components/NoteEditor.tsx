@@ -33,7 +33,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onNoteUpdate }) => {
       setSaving(true);
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`/api/notes/${note.id}`, {
+        const response = await fetch(`/api/v1/notes/${note.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
