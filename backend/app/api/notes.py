@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pydantic import BaseModel
 
 from backend.app.db.session import get_db
 from backend.app.models.note import Note, NoteCreate, NoteUpdate, NoteResponse
@@ -10,7 +11,11 @@ from backend.app.models.user import User
 router = APIRouter()
 
 
-@router.get("/tags", response_model=dict)
+class TagsResponse(BaseModel):
+    tags: List[str]
+
+
+@router.get("/tags", response_model=TagsResponse)
 def get_all_tags(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -19,8 +24,7 @@ def get_all_tags(
     all_tags: set = set()
     for note in notes:
         if note.tags:
-            for tag in note.tags:
-                all_tags.add(tag)
+            all_tags.update(note.tags)
     return {"tags": sorted(list(all_tags))}
 
 
@@ -36,9 +40,6 @@ def get_notes(
 ):
     query = db.query(Note).filter(Note.user_id == current_user.id)
 
-    if tag is not None:
-        query = query.filter(Note.tags.contains([tag]))
-
     if folder_id is not None:
         query = query.filter(Note.folder_id == folder_id)
 
@@ -48,7 +49,12 @@ def get_notes(
             Note.title.ilike(search_term) | Note.body.ilike(search_term)
         )
 
-    return query.offset(skip).limit(limit).all()
+    notes = query.offset(skip).limit(limit).all()
+
+    if tag is not None:
+        notes = [n for n in notes if n.tags and tag in n.tags]
+
+    return notes
 
 
 @router.post("/", response_model=NoteResponse, status_code=status.HTTP_201_CREATED)
@@ -76,11 +82,9 @@ def get_note(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    note = db.query(Note).filter(Note.id == note_id).first()
+    note = db.query(Note).filter(Note.id == note_id, Note.user_id == current_user.id).first()
     if not note:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
-    if note.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this note")
     return note
 
 
@@ -91,11 +95,9 @@ def update_note(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    note = db.query(Note).filter(Note.id == note_id).first()
+    note = db.query(Note).filter(Note.id == note_id, Note.user_id == current_user.id).first()
     if not note:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
-    if note.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this note")
 
     update_data = note_in.dict(exclude_unset=True)
     for field, value in update_data.items():
@@ -112,11 +114,9 @@ def delete_note(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    note = db.query(Note).filter(Note.id == note_id).first()
+    note = db.query(Note).filter(Note.id == note_id, Note.user_id == current_user.id).first()
     if not note:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
-    if note.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this note")
 
     db.delete(note)
     db.commit()

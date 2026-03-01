@@ -16,6 +16,7 @@ class Note(Base):
     body = Column(Text, nullable=True)
     tags = Column(JSON, default=list, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    folder_id = Column(Integer, ForeignKey("folders.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -42,6 +43,7 @@ class NoteUpdate(BaseModel):
 class NoteResponse(NoteBase):
     id: int
     user_id: int
+    folder_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
